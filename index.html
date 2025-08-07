@@ -6,7 +6,14 @@
     <title>Chess Analysis Board</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Chess.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    
+    <!-- Chessboard CSS -->
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <!-- Chessboard JS -->
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -18,8 +25,8 @@
         <div class="main-content">
             <div class="input-section">
                 <div class="input-tabs">
-                    <button class="tab-btn active" data-tab="upload">Upload PGN</button>
-                    <button class="tab-btn" data-tab="username">Fetch by Username</button>
+                    <button class="tab-btn active" id="upload-tab-btn">Upload PGN</button>
+                    <button class="tab-btn" id="username-tab-btn">Fetch by Username</button>
                 </div>
 
                 <div class="tab-content active" id="upload-tab">
@@ -27,7 +34,7 @@
                         <div class="upload-content">
                             <div class="upload-icon">📁</div>
                             <p>Drop PGN file here or click to browse</p>
-                            <input type="file" id="pgn-file" accept=".pgn" hidden>
+                            <input type="file" id="pgn-file" accept=".pgn" style="display: none;">
                         </div>
                     </div>
                 </div>
@@ -39,8 +46,9 @@
                             <option value="lichess">Lichess</option>
                         </select>
                         <input type="text" id="username-input" placeholder="Enter username">
-                        <button id="fetch-games">Fetch Games</button>
+                        <button id="fetch-games-btn">Fetch Games</button>
                     </div>
+                    <div id="status-message"></div>
                 </div>
 
                 <div class="games-list" id="games-list" style="display: none;">
@@ -51,12 +59,12 @@
 
             <div class="analysis-section" id="analysis-section" style="display: none;">
                 <div class="board-container">
-                    <div id="chess-board"></div>
+                    <div id="chess-board" style="width: 400px;"></div>
                     <div class="board-controls">
-                        <button id="first-move">⏮️</button>
-                        <button id="prev-move">⬅️</button>
-                        <button id="next-move">➡️</button>
-                        <button id="last-move">⏭️</button>
+                        <button id="first-btn">⏮️</button>
+                        <button id="prev-btn">⬅️</button>
+                        <button id="next-btn">➡️</button>
+                        <button id="last-btn">⏭️</button>
                     </div>
                 </div>
 
@@ -68,7 +76,7 @@
                     </div>
                     <div class="evaluation-panel">
                         <h3>Position Evaluation</h3>
-                        <div class="eval-display" id="eval-display">
+                        <div class="eval-display">
                             <div class="eval-bar">
                                 <div class="eval-fill" id="eval-fill"></div>
                             </div>
@@ -80,34 +88,6 @@
         </div>
     </div>
 
-    <script>
-        function loadLibrariesWithFallback() {
-            const scripts = [
-                'https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.12.1/chess.min.js',
-                'https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js'
-            ];
-            
-            let loadedCount = 0;
-            const totalScripts = scripts.length;
-            
-            scripts.forEach((src) => {
-                const script = document.createElement('script');
-                script.src = src;
-                script.onload = () => {
-                    loadedCount++;
-                    if (loadedCount === totalScripts) {
-                        initializeApp();
-                    }
-                };
-                script.onerror = () => {
-                    console.error(`Failed to load: ${src}`);
-                };
-                document.head.appendChild(script);
-            });
-        }
-        
-        loadLibrariesWithFallback();
-    </script>
     <script src="app.js"></script>
 </body>
 </html>
