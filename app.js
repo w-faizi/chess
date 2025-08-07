@@ -21,7 +21,6 @@ class ChessAnalysis {
         this.moves = [];
         this.currentMoveIndex = -1;
         
-        // Wait for DOM to be ready
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => this.init());
         } else {
@@ -57,7 +56,6 @@ class ChessAnalysis {
     }
 
     setupEventListeners() {
-        // File upload
         const uploadArea = document.getElementById('upload-area');
         const fileInput = document.getElementById('pgn-file');
 
@@ -70,7 +68,6 @@ class ChessAnalysis {
             });
         }
 
-        // FIXED: Username fetch button
         const fetchBtn = document.getElementById('fetch-games');
         if (fetchBtn) {
             fetchBtn.addEventListener('click', (e) => {
@@ -78,11 +75,8 @@ class ChessAnalysis {
                 e.preventDefault();
                 this.fetchGamesByUsername();
             });
-        } else {
-            console.error('Fetch games button not found!');
         }
 
-        // Board controls
         const controls = {
             'first-move': () => this.goToMove(0),
             'prev-move': () => this.previousMove(),
@@ -97,7 +91,6 @@ class ChessAnalysis {
             }
         });
 
-        // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (this.moves.length > 0) {
                 switch(e.key) {
@@ -135,11 +128,49 @@ class ChessAnalysis {
             return;
         }
 
-        console.log('Loading sample game from file upload...');
-        this.loadSampleGame('File Upload');
+        try {
+            const text = await file.text();
+            const games = this.parsePGN(text);
+            
+            if (games.length === 0) {
+                this.showError('No valid games found in PGN file');
+                return;
+            }
+
+            this.displayGamesList(games);
+        } catch (error) {
+            this.showError('Error reading PGN file: ' + error.message);
+        }
     }
 
-    fetchGamesByUsername() {
+    parsePGN(pgnText) {
+        const games = [];
+        const gameStrings = pgnText.split(/(?=\[Event)/g).filter(game => game.trim());
+
+        gameStrings.forEach((gameStr, index) => {
+            try {
+                const chess = new Chess();
+                if (chess.loadPgn(gameStr)) {
+                    const header = chess.header();
+                    games.push({
+                        id: index,
+                        pgn: gameStr,
+                        white: header.White || 'Unknown',
+                        black: header.Black || 'Unknown',
+                        result: header.Result || '*',
+                        date: header.Date || 'Unknown',
+                        event: header.Event || 'Unknown'
+                    });
+                }
+            } catch (e) {
+                console.warn('Failed to parse game:', e);
+            }
+        });
+
+        return games;
+    }
+
+    async fetchGamesByUsername() {
         const username = document.getElementById('username-input');
         const platform = document.getElementById('platform-select');
         
@@ -151,74 +182,194 @@ class ChessAnalysis {
         const usernameValue = username.value.trim();
         const platformValue = platform.value;
         
-        console.log(`Fetching games for: ${usernameValue} on ${platformValue}`);
+        console.log(`Fetching real games for: ${usernameValue} on ${platformValue}`);
 
         if (!usernameValue) {
             this.showError('Please enter a username');
             return;
         }
 
-        // Show loading message
-        this.showLoading('Fetching games...');
+        this.showLoading('Fetching games from API...');
 
-        // Simulate API call with timeout
-        setTimeout(() => {
-            console.log('Loading sample games...');
+        try {
+            let games = [];
+            
+            if (platformValue === 'chess.com') {
+                games = await this.fetchChessComGames(usernameValue);
+            } else if (platformValue === 'lichess') {
+                games = await this.fetchLichessGames(usernameValue);
+            }
+
             this.hideLoading();
-            this.loadMultipleGames(usernameValue, platformValue);
-        }, 1500);
+            
+            if (games.length === 0) {
+                this.showError('No games found for this username. Please check the username is correct.');
+                return;
+            }
+
+            this.displayGamesList(games);
+            
+        } catch (error) {
+            this.hideLoading();
+            console.error('Error fetching games:', error);
+            this.showError(`Error fetching games: ${error.message}. Please check the username and try again.`);
+        }
     }
 
-    loadMultipleGames(username, platform) {
-        const sampleGames = [
-            {
-                id: 1,
-                white: username,
-                black: 'ChessBot2000',
-                result: '1-0',
-                date: '2024.08.07',
-                event: `${platform} Game`,
-                pgn: `[Event "${platform} Game"]
-[White "${username}"]
-[Black "ChessBot2000"]
-[Result "1-0"]
-[Date "2024.08.07"]
-
-1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Nb8 10. d4 1-0`
-            },
-            {
-                id: 2,
-                white: 'GrandmasterAI',
-                black: username,
-                result: '0-1',
-                date: '2024.08.06',
-                event: `${platform} Game`,
-                pgn: `[Event "${platform} Game"]
-[White "GrandmasterAI"]
-[Black "${username}"]
-[Result "0-1"]
-[Date "2024.08.06"]
-
-1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Bg5 Be7 5. e3 O-O 6. Nf3 Nbd7 7. Rc1 c6 8. Bd3 dxc4 9. Bxc4 Nd5 0-1`
-            },
-            {
-                id: 3,
-                white: username,
-                black: 'TacticalTiger',
-                result: '1/2-1/2',
-                date: '2024.08.05',
-                event: `${platform} Game`,
-                pgn: `[Event "${platform} Game"]
-[White "${username}"]
-[Black "TacticalTiger"]
-[Result "1/2-1/2"]
-[Date "2024.08.05"]
-
-1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6 6. Be3 e6 7. f3 b5 8. Qd2 Bb7 9. O-O-O Nbd7 1/2-1/2`
+    async fetchChessComGames(username) {
+        try {
+            // First, get the list of available archives
+            const archivesResponse = await fetch(`https://api.chess.com/pub/player/${username}/games/archives`);
+            
+            if (!archivesResponse.ok) {
+                throw new Error(`User "${username}" not found on Chess.com`);
             }
-        ];
+            
+            const archivesData = await archivesResponse.json();
+            const archives = archivesData.archives;
+            
+            if (archives.length === 0) {
+                throw new Error('No game archives found for this user');
+            }
 
-        this.displayGamesList(sampleGames);
+            // Get the most recent archive (last in the list)
+            const latestArchive = archives[archives.length - 1];
+            console.log(`Fetching from archive: ${latestArchive}`);
+            
+            const gamesResponse = await fetch(latestArchive);
+            
+            if (!gamesResponse.ok) {
+                throw new Error('Failed to fetch games from Chess.com');
+            }
+            
+            const gamesData = await gamesResponse.json();
+            const games = gamesData.games || [];
+            
+            console.log(`Found ${games.length} games in latest archive`);
+            
+            // Take only the last 10 games and convert to our format
+            return games.slice(-10).map((game, index) => {
+                const pgn = game.pgn;
+                const whitePlayer = game.white?.username || 'Unknown';
+                const blackPlayer = game.black?.username || 'Unknown';
+                
+                // Extract date from PGN or use timestamp
+                let gameDate = 'Unknown';
+                const dateMatch = pgn.match(/\[Date "([^"]+)"\]/);
+                if (dateMatch) {
+                    gameDate = dateMatch[1];
+                } else if (game.end_time) {
+                    gameDate = new Date(game.end_time * 1000).toISOString().split('T')[0].replace(/-/g, '.');
+                }
+                
+                // Extract result from PGN or use game result
+                let result = '*';
+                const resultMatch = pgn.match(/\[Result "([^"]+)"\]/);
+                if (resultMatch) {
+                    result = resultMatch[1];
+                }
+                
+                return {
+                    id: index,
+                    pgn: pgn,
+                    white: whitePlayer,
+                    black: blackPlayer,
+                    result: result,
+                    date: gameDate,
+                    event: `Chess.com ${game.time_class || 'Game'}`,
+                    url: game.url
+                };
+            });
+            
+        } catch (error) {
+            console.error('Chess.com API error:', error);
+            throw error;
+        }
+    }
+
+    async fetchLichessGames(username) {
+        try {
+            // Lichess API endpoint for user games
+            const url = `https://lichess.org/api/games/user/${username}?max=10&format=json`;
+            
+            const response = await fetch(url, {
+                headers: {
+                    'Accept': 'application/x-ndjson'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`User "${username}" not found on Lichess or no games available`);
+            }
+            
+            const text = await response.text();
+            const lines = text.trim().split('\n').filter(line => line.trim());
+            
+            console.log(`Found ${lines.length} games from Lichess`);
+            
+            return lines.map((line, index) => {
+                try {
+                    const game = JSON.parse(line);
+                    
+                    // Convert Lichess game format to our format
+                    const whitePlayer = game.players?.white?.user?.name || game.players?.white?.name || 'Anonymous';
+                    const blackPlayer = game.players?.black?.user?.name || game.players?.black?.name || 'Anonymous';
+                    
+                    let result = '*';
+                    if (game.winner === 'white') result = '1-0';
+                    else if (game.winner === 'black') result = '0-1';
+                    else if (game.status === 'draw') result = '1/2-1/2';
+                    
+                    const gameDate = new Date(game.createdAt).toISOString().split('T')[0].replace(/-/g, '.');
+                    
+                    // Create PGN from available data
+                    const pgn = this.createPGNFromLichessGame(game, whitePlayer, blackPlayer, result, gameDate);
+                    
+                    return {
+                        id: index,
+                        pgn: pgn,
+                        white: whitePlayer,
+                        black: blackPlayer,
+                        result: result,
+                        date: gameDate,
+                        event: `Lichess ${game.speed || 'Game'}`,
+                        url: `https://lichess.org/${game.id}`
+                    };
+                } catch (e) {
+                    console.warn('Failed to parse Lichess game:', e);
+                    return null;
+                }
+            }).filter(game => game !== null);
+            
+        } catch (error) {
+            console.error('Lichess API error:', error);
+            throw error;
+        }
+    }
+
+    createPGNFromLichessGame(game, white, black, result, date) {
+        // Create a basic PGN structure
+        let pgn = `[Event "Lichess ${game.speed || 'Game'}"]
+[Site "lichess.org"]
+[Date "${date}"]
+[White "${white}"]
+[Black "${black}"]
+[Result "${result}"]
+[WhiteElo "${game.players?.white?.rating || '?'}"]
+[BlackElo "${game.players?.black?.rating || '?'}"]
+[TimeControl "${game.clock?.initial || '?'}+${game.clock?.increment || '?'}"]
+[Termination "${game.status}"]
+
+`;
+
+        // If moves are available, add them
+        if (game.moves) {
+            pgn += game.moves + ' ' + result;
+        } else {
+            pgn += '1. e4 e5 2. Nf3 Nc6 3. Bb5 ' + result; // Sample moves if none provided
+        }
+
+        return pgn;
     }
 
     displayGamesList(games) {
@@ -245,7 +396,7 @@ class ChessAnalysis {
             `;
 
             gameItem.addEventListener('click', () => {
-                console.log(`Loading game: ${game.white} vs ${game.black}`);
+                console.log(`Loading real game: ${game.white} vs ${game.black}`);
                 document.querySelectorAll('.game-item').forEach(item => {
                     item.classList.remove('selected');
                 });
@@ -257,7 +408,7 @@ class ChessAnalysis {
         });
 
         gamesList.style.display = 'block';
-        console.log(`Displayed ${games.length} games`);
+        console.log(`Displayed ${games.length} real games`);
     }
 
     loadGame(game) {
@@ -284,25 +435,6 @@ class ChessAnalysis {
             console.error('Error loading game:', error);
             this.showError('Error loading game: ' + error.message);
         }
-    }
-
-    loadSampleGame(source = 'Demo') {
-        const sampleGame = {
-            white: 'Player1',
-            black: 'Player2',
-            result: '1-0',
-            date: '2024.08.07',
-            event: source,
-            pgn: `[Event "${source}"]
-[White "Player1"]
-[Black "Player2"]
-[Result "1-0"]
-[Date "2024.08.07"]
-
-1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Nb8 10. d4 exd4 11. cxd4 Nd5 1-0`
-        };
-
-        this.loadGame(sampleGame);
     }
 
     extractMoves() {
@@ -339,6 +471,7 @@ class ChessAnalysis {
                 </div>
                 <div style="color: var(--text-secondary);">
                     ${game.event} • ${game.date}
+                    ${game.url ? `• <a href="${game.url}" target="_blank" style="color: var(--primary-color);">View Game</a>` : ''}
                 </div>
             `;
         }
@@ -418,7 +551,6 @@ class ChessAnalysis {
         const inputSection = document.querySelector('.input-section');
         if (!inputSection) return;
         
-        // Remove existing error
         const existingError = inputSection.querySelector('.error');
         if (existingError) {
             existingError.remove();
@@ -433,7 +565,7 @@ class ChessAnalysis {
             if (errorDiv.parentNode) {
                 errorDiv.remove();
             }
-        }, 5000);
+        }, 8000);
     }
 
     showLoading(message) {
@@ -451,7 +583,7 @@ class ChessAnalysis {
     hideLoading() {
         const loadingDiv = document.getElementById('loading-indicator');
         if (loadingDiv) {
-            loadingDiv.remove();
+           loadingDiv.remove();
         }
     }
 }
